@@ -1,0 +1,20 @@
+!-------------------------------------------------------------------------------
+! AED2 coupling
+!-------------------------------------------------------------------------------
+&aed_models
+   models = 'aed_tracer', 'aed_oxygen'
+/
+
+&aed_tracer
+    retention_time = .true.
+    num_tracers = 1
+/
+
+&aed_oxygen
+  oxy_initial       = 225.0
+  Fsed_oxy          = -10.0
+  Ksed_oxy          =  25.0
+  theta_sed_oxy     =   1.08
+  oxy_min           = 0
+  oxy_max           = 500
+/
