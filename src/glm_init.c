@@ -637,13 +637,20 @@ void init_glm(int *jstart, char *outp_dir, char *outp_fn, int *nsave)
     /*-- %%END NAMELIST ------------------------------------------------------*/
     //==========================================================================
     NAMELIST heat_pump[] = {
-          { "heat_pump",              TYPE_START,            NULL                    },
-          { "heat_pump_switch",       TYPE_INT,              &heat_pump_switch       },
-          { "heat_pump_inflow_idx",   TYPE_INT,              &heat_pump_inflow_idx   },
-          { "heat_pump_outflow_idx",  TYPE_INT,              &heat_pump_outflow_idx  },
-          { "heat_pump_temp_change",  TYPE_DOUBLE,           &heat_pump_temp_change  },
-          { "heat_pump_heat_flux",    TYPE_DOUBLE,           &heat_pump_heat_flux    },
-          { NULL,                     TYPE_END,              NULL                    }
+          { "heat_pump",              TYPE_START,            NULL                         },
+          { "heat_pump_switch",       TYPE_INT,              &heat_pump_switch            },
+          { "heat_pump_inflow_idx",   TYPE_INT,              &heat_pump_inflow_idx        },
+          { "heat_pump_outflow_idx",  TYPE_INT,              &heat_pump_outflow_idx       },
+          { "heat_pump_temp_change",  TYPE_DOUBLE,           &heat_pump_temp_change       },
+          { "heat_pump_heat_flux",    TYPE_DOUBLE,           &heat_pump_heat_flux         },
+          // Physical constraints
+          { "heat_pump_min_temp",     TYPE_DOUBLE,           &heat_pump_min_temp          },
+          { "heat_pump_max_temp",     TYPE_DOUBLE,           &heat_pump_max_temp          },
+          { "heat_pump_max_delta_t",  TYPE_DOUBLE,           &heat_pump_max_delta_t       },
+          { "heat_pump_max_flow",     TYPE_DOUBLE,           &heat_pump_max_flow          },
+          { "heat_pump_min_withdraw_temp", TYPE_DOUBLE,      &heat_pump_min_withdraw_temp },
+          { "heat_pump_enforce_limits", TYPE_BOOL,           &heat_pump_enforce_limits    },
+          { NULL,                     TYPE_END,              NULL                         }
     };
     /*-- %%END NAMELIST ------------------------------------------------------*/
 

@@ -180,6 +180,13 @@
    heat_pump_switch = 1
    heat_pump_inflow_idx = 0
    heat_pump_outflow_idx = 0
-   heat_pump_temp_change = -3
-   !heat_pump_heat_flux = 50000 !50 kW
+   heat_pump_temp_change = -2.0   ! Large cooling to test constraints
+   !heat_pump_heat_flux = 50000   ! 50 kW (for Mode 2)
+   ! Physical constraints (new parameters)
+   heat_pump_min_temp = 2.0          ! Min injection temp (°C) - avoid freezing
+   heat_pump_max_temp = 35.0         ! Max injection temp (°C) - ecological limit
+   heat_pump_max_delta_t = 8.0       ! Max |ΔT| (°C) - will clamp -5 is OK
+   heat_pump_max_flow = 864000.0     ! Max flow (m³/day = 10 m³/s)
+   heat_pump_min_withdraw_temp = 1 ! Min withdrawal temp (°C)
+   heat_pump_enforce_limits = .true. ! Enforce limits (clamp values)
 /

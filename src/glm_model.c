@@ -980,6 +980,9 @@ void end_model()
 {
     fputc('\n', stdout);
 
+    // Print heat pump constraint summary at end of simulation
+    heat_pump_report_stats();
+
     close_kw_files();
     close_met_files();
     close_inflow_files();

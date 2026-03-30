@@ -343,6 +343,13 @@ extern AED_REAL heat_pump_temp_change;       //# temperature increase (°C)
 extern AED_REAL heat_pump_heat_flux;         //# heat flux input (W)
 extern AED_REAL heat_pump_dynamic_heat_flux; //# dynamic heat flux from CSV (W)
 extern AED_REAL heat_pump_current_heat_flux; //# current dynamic heat flux from CSV (W)
+// Physical constraints for heat pump operation
+extern AED_REAL heat_pump_min_temp;          //# minimum injection temperature (°C)
+extern AED_REAL heat_pump_max_temp;          //# maximum injection temperature (°C)
+extern AED_REAL heat_pump_max_delta_t;       //# maximum allowable |ΔT| (°C)
+extern AED_REAL heat_pump_max_flow;          //# maximum flow rate (m³/day)
+extern AED_REAL heat_pump_min_withdraw_temp; //# minimum withdrawal temperature (°C)
+extern CLOGICAL heat_pump_enforce_limits;    //# enforce physical limits (TRUE=clamp, FALSE=warn)
 
 /*----------------------------------------------------------------------------*/
 // DEBUGGING

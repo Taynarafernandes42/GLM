@@ -20,5 +20,6 @@ void heat_pump_capture_outflow(int jday, AED_REAL DrawHeight, AED_REAL vol, AED_
 void heat_pump_insert_inflow(void);
 void init_heat_pump(void);
 void check_heat_pump_config(void);
+void heat_pump_report_stats(void);
 
 #endif

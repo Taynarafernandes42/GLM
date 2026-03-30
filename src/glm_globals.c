@@ -242,6 +242,13 @@ AED_REAL heat_pump_temp_change = 0.0;       //# Temperature change [°C]
 AED_REAL heat_pump_heat_flux = 0.0;         //# Heat flux input [W]
 AED_REAL heat_pump_dynamic_heat_flux = 0.0; //# Dynamic heat flux from CSV [W]
 AED_REAL heat_pump_current_heat_flux = 0.0; //# Current dynamic heat flux from CSV [W]
+// Physical constraints for heat pump operation
+AED_REAL heat_pump_min_temp = 0.5;          //# Minimum injection temperature [°C] - avoid freezing
+AED_REAL heat_pump_max_temp = 35.0;         //# Maximum injection temperature [°C] - ecological limit
+AED_REAL heat_pump_max_delta_t = 10.0;      //# Maximum allowable |ΔT| [°C]
+AED_REAL heat_pump_max_flow = 864000.0;     //# Maximum flow rate [m³/day] (= 10 m³/s)
+AED_REAL heat_pump_min_withdraw_temp = 1.0; //# Minimum withdrawal temperature [°C] - system protection
+CLOGICAL heat_pump_enforce_limits = TRUE;   //# Enforce physical limits (TRUE=clamp, FALSE=warn only)
 
 //------------------------------------------------------------------------------
 // LITTORAL
