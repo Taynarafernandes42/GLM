@@ -89,31 +89,38 @@ void heat_pump_insert_inflow()
     }
 
     // Calculate temperature change caused by the heat pump
+    // Sign convention (physics standard):
+    //   Positive = heat added to water (warming) - e.g., summer heat rejection
+    //   Negative = heat removed from water (cooling) - e.g., winter heat extraction
     AED_REAL heated_temp;
     AED_REAL temp_change_value;
     
     switch (heat_pump_switch) {
         case 1: {
-            // Mode 1: Fixed temperature increase (defined in .nml file)
+            // Mode 1: Fixed temperature change (defined in .nml file)
+            // Positive heat_pump_temp_change = warming, Negative = cooling
             temp_change_value = heat_pump_temp_change;
-            heated_temp = stored_temp - temp_change_value;
+            heated_temp = stored_temp + temp_change_value;
             break;
         }
         case 2: {
-            // Mode 2: heat flux-based dT calculation
+            // Mode 2: Heat flux-based ΔT calculation
+            // ΔT = Φ / (ρ × cp × q)  [Equation 2 from paper]
+            // Positive Φ = heat added to water (warming)
+            // Negative Φ = heat removed from water (cooling)
             AED_REAL flow_rate_m3s = stored_flow_rate / SecsPerDay; // m³/day to m³/s
             // Use dynamic heat flux if available, otherwise use static value
             AED_REAL current_heat_flux = (heat_pump_dynamic_heat_flux != 0.0) ? 
                                         heat_pump_dynamic_heat_flux : heat_pump_heat_flux;
-            // ΔT = Q_heat / (ρ × Q_flow × c) Units: W / (kg/m³ × m³/s × J/(kg·K)) = J/s / (kg/s × J/(kg·K)) = K
+            // ΔT = Φ / (ρ × cp × q)  Units: W / (kg/m³ × m³/s × J/(kg·K)) = K
             temp_change_value = current_heat_flux / (rho0 * flow_rate_m3s * SPHEAT);
-            heated_temp = stored_temp - temp_change_value;
+            heated_temp = stored_temp + temp_change_value;
             break;
         }
         default: {
             // Default to mode 1 behavior for backward compatibility
             temp_change_value = heat_pump_temp_change;
-            heated_temp = stored_temp - temp_change_value;
+            heated_temp = stored_temp + temp_change_value;
             break;
         }
     }
