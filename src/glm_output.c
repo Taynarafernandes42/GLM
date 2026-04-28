@@ -411,7 +411,15 @@ void write_diags(int jday, AED_REAL LakeNum)
     write_csv_lake("Max dT/dz",    (max_dt = max_dtdz_at(Lake, NumLayers)), NULL, FALSE);
     write_csv_lake("CD",              coef_wind_drag,            NULL, FALSE);
     write_csv_lake("CHE",             coef_wind_chwn,            NULL, FALSE);
-    write_csv_lake("z/L",             SurfData.dailyzonL*(noSecs/SecsPerDay), NULL, TRUE);
+    write_csv_lake("z/L",             SurfData.dailyzonL*(noSecs/SecsPerDay), NULL, FALSE);
+    // Heat pump diagnostic outputs
+    write_csv_lake("HP Daily Flux",      heat_pump_daily_flux,        NULL, FALSE);
+    write_csv_lake("HP Extract Temp",    heat_pump_daily_extract_temp, NULL, FALSE);
+    write_csv_lake("HP Inject Temp",     heat_pump_daily_inject_temp,  NULL, FALSE);
+    write_csv_lake("HP Cumulative Flux", heat_pump_cumulative_flux,    NULL, TRUE);
+    // Reset daily accumulators at end of output
+    heat_pump_daily_flux = 0.0;
+    heat_pump_daily_flow = 0.0;
 
     write_csv_lake("Tot Salt",        sum_lake_salt(),           NULL, FALSE);
     write_csv_lake("Tot Inflow Salt", salt_inflow(),             NULL, FALSE);

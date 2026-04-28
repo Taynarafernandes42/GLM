@@ -228,6 +228,11 @@ void init_csv_output(const char *out_dir)
         csv_header_var(csv_lake_file, "CD");
         csv_header_var(csv_lake_file, "CHE");
         csv_header_var(csv_lake_file, "z/L");
+        // Heat pump diagnostic outputs
+        csv_header_var(csv_lake_file, "HP Daily Flux");      // J/day
+        csv_header_var(csv_lake_file, "HP Extract Temp");    // °C
+        csv_header_var(csv_lake_file, "HP Inject Temp");     // °C
+        csv_header_var(csv_lake_file, "HP Cumulative Flux"); // J
         csv_header_end(csv_lake_file);
     } else
         csv_lake_file = -1;

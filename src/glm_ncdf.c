@@ -69,6 +69,8 @@ static int OverFVol_id, Evap_id, Rain_id, LocRunoff_id, SnowF_id, LakeLvl_id;
 static int SnowDns_id, Alb_id, MaxT_id, MinT_id, SfT_id, DQsw_id, DQe_id;
 static int DQh_id, DQlw_id, Light_id, BenLight_id, SWH_id, SWL_id, SWP_id;
 static int LkNum_id, maxdtz_id, CD_id, CHE_id, zL_id;
+// Heat pump diagnostic output variable IDs
+static int HP_Flux_id, HP_ExtT_id, HP_InjT_id, HP_CumFlux_id;
 
 #ifdef _WIN32
     char *strndup(const char *s, size_t len);
@@ -181,6 +183,11 @@ int init_glm_ncdf(const char *fn, const char *title, AED_REAL lat,
     check_nc_error(nc_def_var(ncid, "CD",                  NC_REALTYPE, 3, dims, &CD_id));
     check_nc_error(nc_def_var(ncid, "CHE",                 NC_REALTYPE, 3, dims, &CHE_id));
     check_nc_error(nc_def_var(ncid, "z_L",                 NC_REALTYPE, 3, dims, &zL_id));
+    // Heat pump diagnostic outputs
+    check_nc_error(nc_def_var(ncid, "hp_daily_flux",       NC_REALTYPE, 3, dims, &HP_Flux_id));
+    check_nc_error(nc_def_var(ncid, "hp_extract_temp",     NC_REALTYPE, 3, dims, &HP_ExtT_id));
+    check_nc_error(nc_def_var(ncid, "hp_inject_temp",      NC_REALTYPE, 3, dims, &HP_InjT_id));
+    check_nc_error(nc_def_var(ncid, "hp_cumulative_flux",  NC_REALTYPE, 3, dims, &HP_CumFlux_id));
 
     /**************************************************************************
      * define 3D variables                                                    *
@@ -270,6 +277,11 @@ f0, fsum,u_f,u0,u_avg" PARAM_FILLVALUE);
     set_nc_attributes(ncid, CD_id,        "m/s",     "Coeff. of Wind Drag"  PARAM_FILLVALUE);
     set_nc_attributes(ncid, CHE_id,       "unknown", "CHE"                  PARAM_FILLVALUE);
     set_nc_attributes(ncid, zL_id,        "unknown", "z_L"                  PARAM_FILLVALUE);
+    // Heat pump diagnostic outputs
+    set_nc_attributes(ncid, HP_Flux_id,    "J/day",  "Heat pump daily flux"           PARAM_FILLVALUE);
+    set_nc_attributes(ncid, HP_ExtT_id,    "celsius","Heat pump extraction temp"      PARAM_FILLVALUE);
+    set_nc_attributes(ncid, HP_InjT_id,    "celsius","Heat pump injection temp"       PARAM_FILLVALUE);
+    set_nc_attributes(ncid, HP_CumFlux_id, "J",      "Heat pump cumulative flux"      PARAM_FILLVALUE);
 
     //# x,y,z,t
     set_nc_attributes(ncid, z_id,       "meters",  "layer heights"    PARAM_FILLVALUE);
@@ -523,6 +535,11 @@ void write_glm_diag_ncdf(int ncid, AED_REAL LakeNum,
     xyt_store_nc_scalar(ncid, CD_id, coef_wind_drag);
     xyt_store_nc_scalar(ncid, CHE_id, coef_wind_chwn);
     xyt_store_nc_scalar(ncid, zL_id, SurfData.dailyzonL*(noSecs/SecsPerDay));
+    // Heat pump diagnostic outputs
+    xyt_store_nc_scalar(ncid, HP_Flux_id, heat_pump_daily_flux);
+    xyt_store_nc_scalar(ncid, HP_ExtT_id, heat_pump_daily_extract_temp);
+    xyt_store_nc_scalar(ncid, HP_InjT_id, heat_pump_daily_inject_temp);
+    xyt_store_nc_scalar(ncid, HP_CumFlux_id, heat_pump_cumulative_flux);
 }
 /*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 

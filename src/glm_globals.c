@@ -249,6 +249,12 @@ AED_REAL heat_pump_max_delta_t = 10.0;      //# Maximum allowable |ΔT| [°C]
 AED_REAL heat_pump_max_flow = 864000.0;     //# Maximum flow rate [m³/day] (= 10 m³/s)
 AED_REAL heat_pump_min_withdraw_temp = 1.0; //# Minimum withdrawal temperature [°C] - system protection
 CLOGICAL heat_pump_enforce_limits = TRUE;   //# Enforce physical limits (TRUE=clamp, FALSE=warn only)
+// Heat pump diagnostic output variables
+AED_REAL heat_pump_daily_flux = 0.0;         //# Daily heat flux extracted [J/day]
+AED_REAL heat_pump_daily_flow = 0.0;         //# Daily flow rate [m³/day]
+AED_REAL heat_pump_daily_extract_temp = 0.0; //# Extraction temperature [°C]
+AED_REAL heat_pump_daily_inject_temp = 0.0;  //# Injection temperature [°C]
+AED_REAL heat_pump_cumulative_flux = 0.0;    //# Cumulative heat extracted [J]
 
 //------------------------------------------------------------------------------
 // LITTORAL

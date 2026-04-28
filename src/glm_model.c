@@ -409,7 +409,7 @@ void do_model(int jstart, int nsave)
         //# Only execute if NOT in subdaily mode (subdaily handles it in the loop)
         //# Note: Density instabilities will be resolved in the next timestep's mixing
         if (!(subdaily && heat_pump_switch > 0)) {
-            heat_pump_insert_inflow();
+            heat_pump_insert_inflow(jday);
         }
 
         //# Take care of any overflow
@@ -598,7 +598,7 @@ void do_model_non_avg(int jstart, int nsave)
            //# Only execute if NOT in subdaily mode (subdaily handles it in the loop)
            //# Note: Density instabilities will be resolved in the next timestep's mixing
            if (!(subdaily && heat_pump_switch > 0)) {
-               heat_pump_insert_inflow();
+               heat_pump_insert_inflow(jday);
            }
 
            //# Take care of any overflow
@@ -927,7 +927,7 @@ int do_subdaily_loop(int stepnum, int jday, int stoptime, int nsave, AED_REAL SW
             }
             
             // Inject heat pump water - density instabilities will be resolved in next subdaily step
-            heat_pump_insert_inflow();
+            heat_pump_insert_inflow(jday);
         }
 
         //# If an output write is requested for the last time step of the day

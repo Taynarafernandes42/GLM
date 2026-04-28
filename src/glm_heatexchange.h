@@ -17,7 +17,7 @@
 #include "glm_types.h"
 
 void heat_pump_capture_outflow(int jday, AED_REAL DrawHeight, AED_REAL vol, AED_REAL temp, AED_REAL salt, AED_REAL *wq_vars);
-void heat_pump_insert_inflow(void);
+void heat_pump_insert_inflow(int jday);
 void init_heat_pump(void);
 void check_heat_pump_config(void);
 void heat_pump_report_stats(void);

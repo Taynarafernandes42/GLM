@@ -202,18 +202,52 @@ void heat_pump_capture_outflow(int jday, AED_REAL DrawHeight, AED_REAL vol, AED_
  * Insert heat pump water directly                                                   *
  * Called AFTER do_outflows() in glm_model.c for mass conservation                   *
  *************************************************************************************/
-void heat_pump_insert_inflow() 
+void heat_pump_insert_inflow(int jday) 
 {
     // Only proceed if heat pump is enabled
     if (heat_pump_switch <= 0) return;
 
-    // Only proceed if we have captured flow data
-    if (stored_jday == -1 || stored_flow_rate <= 0.0) return;
-    
     // Check if the specified inflow index is valid
     if (heat_pump_inflow_idx < 0 || heat_pump_inflow_idx >= NumInf) {
         printf("ERROR: heat_pump_inflow_idx (%d) is out of range [0, %d]\n", 
                heat_pump_inflow_idx, NumInf-1);
+        return;
+    }
+    
+    // For Mode 1: require captured outflow data
+    // For Mode 2: can operate independently using extraction layer temperature
+    if (heat_pump_switch == 1) {
+        if (stored_jday == -1 || stored_flow_rate <= 0.0) return;
+    }
+    
+    // Variables for extraction temperature and salinity
+    AED_REAL extraction_temp;
+    AED_REAL extraction_salt;
+    
+    // Get extraction temperature: from captured outflow or from extraction layer
+    if (stored_flow_rate > 0.0 && stored_jday != -1) {
+        // Use captured outflow data
+        extraction_temp = stored_temp;
+        extraction_salt = stored_salt;
+    } else if (heat_pump_switch == 2) {
+        // Mode 2: Get temp from extraction layer (outflow elevation)
+        if (heat_pump_outflow_idx < 0 || heat_pump_outflow_idx >= NumOut) {
+            printf("ERROR: heat_pump_outflow_idx (%d) out of range for Mode 2\n", heat_pump_outflow_idx);
+            return;
+        }
+        
+        // Find extraction layer based on outflow elevation
+        AED_REAL extract_elev = Outflows[heat_pump_outflow_idx].OLev;
+        int Layer_extract;
+        for (Layer_extract = botmLayer; Layer_extract <= surfLayer; Layer_extract++) {
+            if (Lake[Layer_extract].Height >= extract_elev) break;
+        }
+        if (Layer_extract > surfLayer) Layer_extract = surfLayer;
+        
+        extraction_temp = Lake[Layer_extract].Temp;
+        extraction_salt = Lake[Layer_extract].Salinity;
+    } else {
+        // Mode 1 without captured data - cannot proceed
         return;
     }
 
@@ -223,34 +257,83 @@ void heat_pump_insert_inflow()
     //   Negative = heat removed from water (cooling) - e.g., winter heat extraction
     AED_REAL heated_temp;
     AED_REAL temp_change_value;
+    AED_REAL step_duration_seconds = subdaily ? noSecs : SecsPerDay;
     AED_REAL flow_to_inject = stored_flow_rate;
+    AED_REAL flow_rate_m3day_equiv;
     
     switch (heat_pump_switch) {
         case 1: {
             // Mode 1: Fixed temperature change (defined in .nml file)
             // Positive heat_pump_temp_change = warming, Negative = cooling
             temp_change_value = heat_pump_temp_change;
-            heated_temp = stored_temp + temp_change_value;
+            heated_temp = extraction_temp + temp_change_value;
             break;
         }
         case 2: {
-            // Mode 2: Heat flux-based ΔT calculation
-            // ΔT = Φ / (ρ × cp × q)  [Equation 2 from paper]
+            // Mode 2: Heat flux-based with DYNAMIC FLOW RATE calculation
+            // Target: achieve specified heat flux by adjusting flow rate
+            // Q = Φ / (ρ × cp × ΔT)  [rearranged from Equation 2]
             // Positive Φ = heat added to water (warming)
             // Negative Φ = heat removed from water (cooling)
-            AED_REAL flow_rate_m3s = stored_flow_rate / SecsPerDay; // m³/day to m³/s
+            
             // Use dynamic heat flux if available, otherwise use static value
             AED_REAL current_heat_flux = (heat_pump_dynamic_heat_flux != 0.0) ? 
                                         heat_pump_dynamic_heat_flux : heat_pump_heat_flux;
-            // ΔT = Φ / (ρ × cp × q)  Units: W / (kg/m³ × m³/s × J/(kg·K)) = K
-            temp_change_value = current_heat_flux / (rho0 * flow_rate_m3s * SPHEAT);
-            heated_temp = stored_temp + temp_change_value;
+            
+            // Skip if no heat flux specified
+            if (fabs(current_heat_flux) < 1e-10) {
+                return;  // No heat flux = no operation
+            }
+            
+            // Determine maximum allowable ΔT based on temperature constraints
+            AED_REAL max_delta_t;
+            if (current_heat_flux < 0) {
+                // Cooling mode (heat extraction): injection temp cannot go below min_temp
+                // ΔT is negative, so max magnitude is (extraction_temp - min_temp)
+                max_delta_t = -(extraction_temp - heat_pump_min_temp);
+                // Also respect max_delta_t setting
+                if (fabs(max_delta_t) > heat_pump_max_delta_t) {
+                    max_delta_t = -heat_pump_max_delta_t;
+                }
+            } else {
+                // Heating mode (heat rejection): injection temp cannot exceed max_temp
+                max_delta_t = heat_pump_max_temp - extraction_temp;
+                if (max_delta_t > heat_pump_max_delta_t) {
+                    max_delta_t = heat_pump_max_delta_t;
+                }
+            }
+            
+            // Check for zero delta_t (temperature at constraint limit)
+            if (fabs(max_delta_t) < 1e-6) {
+                // Cannot change temperature - skip this timestep
+                return;
+            }
+            
+            // Calculate required flow rate to achieve target flux with this ΔT
+            // Q (m³/s) = Φ (W) / (ρ (kg/m³) × cp (J/kg·K) × ΔT (K))
+            AED_REAL required_flow_m3s = fabs(current_heat_flux) / (rho0 * SPHEAT * fabs(max_delta_t));
+            AED_REAL required_flow_m3day = required_flow_m3s * SecsPerDay;
+            
+            // Apply flow rate limits
+            if (required_flow_m3day > heat_pump_max_flow) {
+                // Flow capped - actual flux will be less than target
+                flow_to_inject = heat_pump_max_flow * step_duration_seconds / SecsPerDay;
+                // Recalculate ΔT based on capped flow
+                AED_REAL actual_flow_m3s = flow_to_inject / step_duration_seconds;
+                temp_change_value = current_heat_flux / (rho0 * actual_flow_m3s * SPHEAT);
+            } else {
+                // Can achieve target flux
+                flow_to_inject = required_flow_m3s * step_duration_seconds;
+                temp_change_value = max_delta_t;
+            }
+            
+            heated_temp = extraction_temp + temp_change_value;
             break;
         }
         default: {
             // Default to mode 1 behavior for backward compatibility
             temp_change_value = heat_pump_temp_change;
-            heated_temp = stored_temp + temp_change_value;
+            heated_temp = extraction_temp + temp_change_value;
             break;
         }
     }
@@ -259,7 +342,7 @@ void heat_pump_insert_inflow()
     // PHYSICAL CONSTRAINTS CHECK
     // =========================================================================
     int constraint_status = check_physical_constraints(
-        stored_jday, &flow_to_inject, stored_temp, &heated_temp, &temp_change_value);
+        jday, &flow_to_inject, extraction_temp, &heated_temp, &temp_change_value);
     
     if (constraint_status == 2) {
         // Critical constraint violation - skip this injection
@@ -281,25 +364,25 @@ void heat_pump_insert_inflow()
     // Print daily summary if we've moved to a new day
     if (last_summary_jday == -1) {
         // First call - initialize
-        last_summary_jday = stored_jday;
-    } else if (stored_jday != last_summary_jday) {
+        last_summary_jday = jday;
+    } else if (jday != last_summary_jday) {
         // Day changed - print summary for the previous day
         print_constraint_summary(last_summary_jday);
-        last_summary_jday = stored_jday;
+        last_summary_jday = jday;
     }
     
     // Additional constraint: Check if injection volume is reasonable compared to layer volume
     // (This is informational only - printed in the regular status output if relevant)
     
     // Calculate density of injected water
-    AED_REAL inject_density = calculate_density(heated_temp, stored_salt);
+    AED_REAL inject_density = calculate_density(heated_temp, extraction_salt);
     
     // Directly inject into the lake layer
     // This combines the injected water properties with the existing layer
     Lake[Layer_inject].Temp = combine(Lake[Layer_inject].Temp, Lake[Layer_inject].LayerVol, Lake[Layer_inject].Density,
                                       heated_temp, flow_to_inject, inject_density);
     Lake[Layer_inject].Salinity = combine(Lake[Layer_inject].Salinity, Lake[Layer_inject].LayerVol, Lake[Layer_inject].Density,
-                                          stored_salt, flow_to_inject, inject_density);
+                                          extraction_salt, flow_to_inject, inject_density);
 
     // Inject WQ variables
     if (Num_WQ_Vars > 0 && WQ_Vars != NULL) {
@@ -329,22 +412,41 @@ void heat_pump_insert_inflow()
     // Track first and last day info for summary
     if (first_hp_jday == -1) {
         // First day of heat pump operation - store and print
-        first_hp_jday = stored_jday;
-        first_hp_flow = flow_to_inject;
-        first_hp_extract_temp = stored_temp;
+        first_hp_jday = jday;
+        flow_rate_m3day_equiv = flow_to_inject * SecsPerDay / step_duration_seconds;
+        first_hp_flow = flow_rate_m3day_equiv;
+        first_hp_extract_temp = extraction_temp;
         first_hp_inject_temp = heated_temp;
         first_hp_delta_t = temp_change_value;
         
         printf("Heat pump FIRST operation at jday %d: Q=%.1f m³/d, T_extract=%.1f°C, T_inject=%.1f°C (ΔT=%.2f°C)\n",
-               stored_jday, flow_to_inject, stored_temp, heated_temp, temp_change_value);
+               jday, flow_to_inject, extraction_temp, heated_temp, temp_change_value);
     }
     
     // Always update last day info (will be printed in final summary)
-    last_hp_jday = stored_jday;
-    last_hp_flow = flow_to_inject;
-    last_hp_extract_temp = stored_temp;
+    last_hp_jday = jday;
+    flow_rate_m3day_equiv = flow_to_inject * SecsPerDay / step_duration_seconds;
+    last_hp_flow = flow_rate_m3day_equiv;
+    last_hp_extract_temp = extraction_temp;
     last_hp_inject_temp = heated_temp;
     last_hp_delta_t = temp_change_value;
+    
+    // =========================================================================
+    // DIAGNOSTIC OUTPUT - Track heat flux for verification
+    // =========================================================================
+    // Accumulate energy across ALL timesteps (e.g., 24 hourly steps per day)
+    // Each timestep contributes: E_step = ρ × cp × V_step × ΔT
+    // flow_to_inject is the volume injected during this timestep (m³)
+    AED_REAL energy_this_step_j = rho0 * SPHEAT * flow_to_inject * fabs(temp_change_value);
+    
+    // Accumulate to daily and cumulative totals
+    heat_pump_daily_flux += energy_this_step_j;
+    heat_pump_daily_flow += flow_to_inject;
+    heat_pump_cumulative_flux += energy_this_step_j;
+    
+    // Always update temperature values (use latest)
+    heat_pump_daily_extract_temp = stored_temp;
+    heat_pump_daily_inject_temp = heated_temp;
     
     // Clear stored data after injection to prevent double injection
     stored_flow_rate = 0.0;
@@ -426,11 +528,15 @@ void check_heat_pump_config()
             printf("ERROR: heat_pump_max_flow must be positive (got %.1f)\n", heat_pump_max_flow);
         }
         
-        // Configure heat pump inflow to use plunge dynamics (NOT submerged)
-        // This allows cooler/denser water to find its neutral buoyancy level
+        // Respect the nml configuration for heat pump inflow (submerged or surface)
+        // If subm_flag = .true. in nml, water is injected at subm_elev depth
+        // If subm_flag = .false., plunge dynamics find neutral buoyancy level
         if (heat_pump_inflow_idx >= 0 && heat_pump_inflow_idx < NumInf) {
-            Inflows[heat_pump_inflow_idx].SubmFlag        = FALSE;  // Use plunge dynamics
-            Inflows[heat_pump_inflow_idx].SubmElevDynamic = FALSE;
+            printf("\nInflow configuration:\n");
+            printf("  Inflow %d: SubmFlag = %s, SubmElev = %.1f m (from .nml)\n",
+                   heat_pump_inflow_idx,
+                   Inflows[heat_pump_inflow_idx].SubmFlag ? "TRUE (submerged injection)" : "FALSE (plunge dynamics)",
+                   Inflows[heat_pump_inflow_idx].SubmElev);
         }
         
         // For outflow: respect the nml configuration (don't force dynamic)
