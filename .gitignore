@@ -46,3 +46,14 @@ Examples/extra/wetland/output.nc
 Examples/extra/wetland/overflow.csv
 .Rproj.user
 GLM.Rproj
+
+# Generated output and temp files
+__pycache__/
+*.pyc
+*.orig
+*.bak
+*.backup
+*.log
+analysis_results/
+output_on/
+Stats_scripts/
