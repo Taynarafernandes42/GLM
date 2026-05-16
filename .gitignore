@@ -53,7 +53,17 @@ __pycache__/
 *.orig
 *.bak
 *.backup
+*.operational_backup
 *.log
 analysis_results/
 output_on/
+output_heatpump/
+output_off/
+operational_sensitivity_results/
 Stats_scripts/
+other_scripts/
+patches/
+lake_*.csv
+heat_pump_depth.csv
+heatpump_log.txt
+Fig_temperature_contour.png
