@@ -67,3 +67,44 @@ lake_*.csv
 heat_pump_depth.csv
 heatpump_log.txt
 Fig_temperature_contour.png
+
+# Simulation output folders
+conservation_analysis/
+paper_verification_results/
+output_energy_test/
+output_mass_test/
+output_openloop/
+scenario_5MW/
+
+# Compiled Fortran objects
+mod/
+obj/
+
+# Python virtual environment
+.venv/
+
+# Generated file types
+*.nc
+*.pdf
+*.eps
+
+# Paper-only files and figures
+docs/
+GLM_HeatPump_Manual.txt
+GLM_HeatPump_Workflow_v2*.png
+heat_budget_analysis.png
+CONSERVATION_TESTS_README.md
+heat_pump_output_patch.md
+Other_nml_files/
+
+# Generated results CSVs
+heat_budget_results.csv
+heat_pump_scenario_results.csv
+heat_pump_constraints_table.csv
+
+# Paper-only scripts
+combine_images.py
+generate_heatpump_workflow.py
+generate_heatpump_workflow_v2.py
+generate_openloop_figure.py
+master_script_old.py
