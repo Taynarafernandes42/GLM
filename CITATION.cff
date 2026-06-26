@@ -1,0 +1,65 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "GLM: Thermal Use Module — Integrating heat extraction into the General Lake Model"
+abstract: >
+  Extension of the General Lake Model (GLM) to simulate thermal use via heat
+  pump systems. Implements thermal exchange between a lake and a heat pump,
+  including physical constraints, subdaily processing, and diagnostic outputs
+  (CSV + NetCDF).
+version: v1.0-thermal-use
+doi: 10.5281/zenodo.20921778
+date-released: "2026-06-26"
+url: "https://github.com/Taynarafernandes42/GLM/tree/thermal_use"
+repository-code: "https://github.com/Taynarafernandes42/GLM"
+license: GPL-3.0
+
+authors:
+  - family-names: Fernandes
+    given-names: Taynara
+    orcid: "https://orcid.org/0000-0001-8445-2263"
+    affiliation: "UFZ - Helmholtz Centre for Environmental Research"
+
+references:
+  - type: article
+    title: >
+      Integrating heat extraction into the General Lake Model (GLM)
+    authors:
+      - family-names: Fernandes
+        given-names: Taynara
+        orcid: "https://orcid.org/0000-0001-8445-2263"
+        affiliation: "UFZ - Helmholtz Centre for Environmental Research"
+  - type: article
+    title: >
+      A General Lake Model (GLM 3.0) for linking with high-frequency sensor
+      data from the Global Lake Ecological Observatory Network (GLEON)
+    authors:
+      - family-names: Hipsey
+        given-names: Matthew R.
+      - family-names: Bruce
+        given-names: Louise C.
+      - family-names: Boon
+        given-names: Casper
+      - family-names: Busch
+        given-names: Brendan
+      - family-names: Carey
+        given-names: Cayelan C.
+      - family-names: Hamilton
+        given-names: David P.
+      - family-names: Hanson
+        given-names: Paul C.
+      - family-names: Read
+        given-names: Jordan S.
+      - family-names: de Sousa
+        given-names: Eduardo
+      - family-names: Weber
+        given-names: Michael
+      - family-names: Winslow
+        given-names: Luke A.
+    journal: "Geoscientific Model Development"
+    volume: 12
+    issue: 1
+    start: 473
+    end: 523
+    year: 2019
+    doi: 10.5194/gmd-12-473-2019
