@@ -13,6 +13,7 @@
 ******************************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "glm.h"
 #include "glm_types.h" 
@@ -117,10 +118,10 @@ static int check_physical_constraints(int jday, AED_REAL *flow_rate, AED_REAL in
     }
     
     // Constraint 2: Check flow rate limits
+    // Flow is the volume actually withdrawn (mass conservation), so it is only
+    // logged here as an over-capacity warning, never shrunk - reducing it
+    // without reducing the real withdrawal would reopen a mass-balance gap.
     if (*flow_rate > heat_pump_max_flow) {
-        if (heat_pump_enforce_limits) {
-            *flow_rate = heat_pump_max_flow;
-        }
         clamp_count_flow++;
         status = 1;
     }
@@ -211,7 +212,7 @@ void heat_pump_insert_inflow(int jday)
     if (heat_pump_inflow_idx < 0 || heat_pump_inflow_idx >= NumInf) {
         printf("ERROR: heat_pump_inflow_idx (%d) is out of range [0, %d]\n", 
                heat_pump_inflow_idx, NumInf-1);
-        return;
+        exit(1);
     }
     
     // For Mode 1: require captured outflow data
@@ -233,7 +234,7 @@ void heat_pump_insert_inflow(int jday)
         // Mode 2: Get temp from extraction layer (outflow elevation)
         if (heat_pump_outflow_idx < 0 || heat_pump_outflow_idx >= NumOut) {
             printf("ERROR: heat_pump_outflow_idx (%d) out of range for Mode 2\n", heat_pump_outflow_idx);
-            return;
+            exit(1);
         }
         
         // Find extraction layer based on outflow elevation
@@ -270,63 +271,28 @@ void heat_pump_insert_inflow(int jday)
             break;
         }
         case 2: {
-            // Mode 2: Heat flux-based with DYNAMIC FLOW RATE calculation
-            // Target: achieve specified heat flux by adjusting flow rate
-            // Q = Φ / (ρ × cp × ΔT)  [rearranged from Equation 2]
-            // Positive Φ = heat added to water (warming)
-            // Negative Φ = heat removed from water (cooling)
-            
+            // Mode 2: Heat flux-based, using the ACTUAL withdrawn flow (mass-conserving)
+            // Solve for ΔT instead of inventing a flow rate: ΔT = Φ / (ρ × q_actual × cp)
+            // Positive Φ = heat added to water (warming), Negative Φ = heat removed (cooling)
+
             // Use dynamic heat flux if available, otherwise use static value
             AED_REAL current_heat_flux = (heat_pump_dynamic_heat_flux != 0.0) ? 
                                         heat_pump_dynamic_heat_flux : heat_pump_heat_flux;
-            
+
             // Skip if no heat flux specified
             if (fabs(current_heat_flux) < 1e-10) {
                 return;  // No heat flux = no operation
             }
-            
-            // Determine maximum allowable ΔT based on temperature constraints
-            AED_REAL max_delta_t;
-            if (current_heat_flux < 0) {
-                // Cooling mode (heat extraction): injection temp cannot go below min_temp
-                // ΔT is negative, so max magnitude is (extraction_temp - min_temp)
-                max_delta_t = -(extraction_temp - heat_pump_min_temp);
-                // Also respect max_delta_t setting
-                if (fabs(max_delta_t) > heat_pump_max_delta_t) {
-                    max_delta_t = -heat_pump_max_delta_t;
-                }
-            } else {
-                // Heating mode (heat rejection): injection temp cannot exceed max_temp
-                max_delta_t = heat_pump_max_temp - extraction_temp;
-                if (max_delta_t > heat_pump_max_delta_t) {
-                    max_delta_t = heat_pump_max_delta_t;
-                }
-            }
-            
-            // Check for zero delta_t (temperature at constraint limit)
-            if (fabs(max_delta_t) < 1e-6) {
-                // Cannot change temperature - skip this timestep
+
+            // Nothing was actually withdrawn this step: no physical flow to carry the flux
+            if (flow_to_inject <= 0.0) {
                 return;
             }
-            
-            // Calculate required flow rate to achieve target flux with this ΔT
-            // Q (m³/s) = Φ (W) / (ρ (kg/m³) × cp (J/kg·K) × ΔT (K))
-            AED_REAL required_flow_m3s = fabs(current_heat_flux) / (rho0 * SPHEAT * fabs(max_delta_t));
-            AED_REAL required_flow_m3day = required_flow_m3s * SecsPerDay;
-            
-            // Apply flow rate limits
-            if (required_flow_m3day > heat_pump_max_flow) {
-                // Flow capped - actual flux will be less than target
-                flow_to_inject = heat_pump_max_flow * step_duration_seconds / SecsPerDay;
-                // Recalculate ΔT based on capped flow
-                AED_REAL actual_flow_m3s = flow_to_inject / step_duration_seconds;
-                temp_change_value = current_heat_flux / (rho0 * actual_flow_m3s * SPHEAT);
-            } else {
-                // Can achieve target flux
-                flow_to_inject = required_flow_m3s * step_duration_seconds;
-                temp_change_value = max_delta_t;
-            }
-            
+
+            // flow_to_inject (== the real withdrawn volume) is left untouched here, so the
+            // achievable flux is bounded by the configured outlet draw, not invented.
+            AED_REAL actual_flow_m3s = flow_to_inject / step_duration_seconds;
+            temp_change_value = current_heat_flux / (rho0 * actual_flow_m3s * SPHEAT);
             heated_temp = extraction_temp + temp_change_value;
             break;
         }

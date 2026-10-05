@@ -1,6 +1,7 @@
 ================================================================================
-  GLM HEAT PUMP MODULE - USER MANUAL | thermal_use branch
-  Author: Taynara Fernandes (UFZ)
+  GLM HEAT PUMP MODULE - USER MANUAL
+  GLM version 3.9.106 | thermal_use branch
+  Author: Taynara Fernandes (University of Western Australia)
 ================================================================================
 
 This manual describes how to configure and use the heat pump thermal exchange
@@ -8,12 +9,33 @@ module in GLM. It assumes you are already familiar with GLM and know how to
 configure a standard simulation using a .nml file and CSV input files.
 
 --------------------------------------------------------------------------------
+0. QUICK START (WORKED EXAMPLE)
+--------------------------------------------------------------------------------
+
+A complete, ready-to-run example for the Grosse Dhuenn Reservoir is provided in
+examples/heat_pump_grosse_dhuenn/, with one config for each mode:
+
+  cd examples/heat_pump_grosse_dhuenn
+  ../../glm --nml glm4_heatpump_mode1.nml   ! Mode 1: fixed ΔT = -2°C
+  ../../glm --nml glm4_heatpump_mode2.nml   ! Mode 2: target flux = -50 kW
+
+Output goes to output_mode1/lake.csv and output_mode2/lake.csv respectively -
+look at the "HP Daily Flow", "HP Daily Flux", "HP Extract Temp",
+"HP Inject Temp" and "HP Cumulative Flux" columns.
+
+The example uses the full 1996-2014 input record (~19 years, hourly met data),
+so a complete run takes a while. For a quick smoke test, edit the &time block
+in either .nml (e.g. stop = '1996-02-01 00:00:00', num_days = 31) to run just
+the first month.
+
+--------------------------------------------------------------------------------
 1. OVERVIEW
 --------------------------------------------------------------------------------
 
 The heat pump module simulates a lake-source heat pump system that extracts
 water from one depth of the lake, changes its temperature (adding or removing
-heat), and re-injects it at another (or same) depth (in the nml file added as elevation).
+heat), and re-injects it at another depth. This represents systems such as
+district cooling/heating plants or aquatic thermal energy storage (ATES).
 
 The module is controlled by a new &heat_pump namelist block in the .nml file
 and requires two dedicated CSV files: one for the injection inflow and one for
@@ -26,27 +48,31 @@ the extraction outflow.
 The heat pump has two operating modes, set via heat_pump_switch:
 
   Mode 0 — OFF
-    The heat pump is disabled. No thermal exchange occurs.
+    The heat pump is fully disabled: no withdrawal, no injection, no thermal
+    exchange. The dedicated inflow/outflow entries are skipped entirely at the
+    code level, regardless of what flow values their CSV files contain.
 
   Mode 1 — Fixed temperature change
-    Water is extracted via an existing outflow (outflow type = 6), a fixed temperature change
+    Water is extracted via an existing outflow, a fixed temperature change
     (heat_pump_temp_change) is applied, and the adjusted water is re-injected
     via a dedicated inflow. The flow rate is determined by the outflow CSV file.
 
     Sign convention:
-      Positive heat_pump_temp_change → water is warmed (heat rejection: warming)
-      Negative heat_pump_temp_change → water is cooled (heat extraction: cooling)
+      Positive heat_pump_temp_change → water is warmed (heat rejection)
+      Negative heat_pump_temp_change → water is cooled (heat extraction)
 
     Example use case: cooling a lake by extracting warm water, cooling it by
     -2°C, and re-injecting it at a deeper elevation.
 
-  Mode 2 — Heat flux-based (dynamic flow rate)
+  Mode 2 — Heat flux-based (solved ΔT, actual flow)
     Instead of a fixed temperature change, you specify a target heat flux in
-    Watts (heat_pump_heat_flux). GLM automatically calculates the required
-    flow rate to deliver that flux, respecting all physical constraints.
-    The flow rate is computed as:
-      Q = Φ / (ρ × cp × ΔT)
-    where ΔT is constrained by the physical limits you set.
+    Watts (heat_pump_heat_flux). GLM uses the flow actually withdrawn at the
+    heat pump outlet (same flow as Mode 1, from the outflow CSV) and solves
+    for the ΔT needed to deliver that flux:
+      ΔT = Φ / (ρ × q_actual × cp)
+    The achievable flux is therefore bounded by the configured outlet flow,
+    not invented — this keeps the water balance exact. ΔT is still subject
+    to the physical limits you set (heat_pump_max_delta_t, min/max_temp).
 
     This mode can also read a time-varying heat flux from a column "HeatFlux"
     in the outflow CSV file (see Section 4).
@@ -65,9 +91,9 @@ Add the following block to your glm4.nml file:
    ! --- Core settings ---
    heat_pump_switch       = 1        ! 0=off, 1=fixed ΔT mode, 2=heat flux mode
    heat_pump_inflow_idx   = 0        ! 0-based index of the heat pump inflow
-                                     !   (must match position in &inflow block: heat pump inflow should be the first listed in the nml file)
+                                     !   (must match position in &inflow block)
    heat_pump_outflow_idx  = 0        ! 0-based index of the heat pump outflow
-                                     !   (must match position in &outflow block: heat pump inflow should be the first listed in the nml file)
+                                     !   (must match position in &outflow block)
 
    ! --- Mode 1: fixed temperature change ---
    heat_pump_temp_change  = -2.0     ! Temperature change applied to extracted
@@ -121,16 +147,21 @@ Parameter descriptions:
     Prevents unrealistically large instantaneous heat transfers.
 
   heat_pump_max_flow
-    Upper bound on the flow rate the system can process (m³/day).
+    Upper bound on the flow rate the system can process (m³/day). This is a
+    diagnostic/warning threshold only - exceeding it is logged (and counted
+    in the daily/final constraint summary) but never changes the injected
+    flow, since that flow is always the volume actually withdrawn and must
+    stay equal on both ends to keep the water balance exact.
 
   heat_pump_min_withdraw_temp
     The system will not extract water if the source layer temperature
     is below this threshold (system protection against freezing).
 
   heat_pump_enforce_limits
-    If .true., all constraints above are hard-clamped (values are adjusted
-    automatically). If .false., violations are printed as warnings but the
-    simulation continues without adjusting values.
+    If .true., the ΔT / injection-temperature constraints above are
+    hard-clamped (values are adjusted automatically). If .false., violations
+    are printed as warnings but the simulation continues without adjusting
+    values. Note this does not apply to heat_pump_max_flow (see above).
 
 --------------------------------------------------------------------------------
 4. REQUIRED CHANGES TO &inflow AND &outflow BLOCKS
@@ -145,8 +176,8 @@ INFLOW BLOCK — heat pump injection point:
   - The corresponding CSV file (e.g. inflow_heatpump.csv) controls the
     flow rate during the simulation. Set these to zero when the heat pump
     is off, and to your desired flow when it is on.
-    Note: In Mode 2, GLM overrides the flow rate from the CSV and computes
-    it dynamically. In Mode 1, the flow rate is taken from the outflow CSV.
+    Note: In both Mode 1 and Mode 2, the flow rate is taken from the outflow
+    CSV (the actual withdrawn volume) — Mode 2 no longer overrides it.
 
 OUTFLOW BLOCK — heat pump extraction point:
   - The heat pump outflow must be listed in &outflow with an elevation
@@ -165,20 +196,19 @@ OUTFLOW BLOCK — heat pump extraction point:
 
   - time : date in YYYY-MM-DD format
   - flow : flow rate in m³/day. Use 0 when heat pump is off.
-           In Mode 1, GLM uses the flow rate from the OUTFLOW file, not this
-           one — but this file must still exist and have valid rows.
-           In Mode 2, this file is used only to initialise the inflow; GLM
-           overrides the flow rate internally.
+           In both Mode 1 and Mode 2, GLM uses the flow rate from the OUTFLOW
+           file, not this one — but this file must still exist and have
+           valid rows.
   - temp : initial temperature of the injected water (°C). GLM will replace
            this with the computed injection temperature automatically.
   - salt : salinity (PSU). Use 0 for freshwater lakes.
 
   Example:
     time,flow,temp,salt
-    1996-01-01,1,0,0
-    1996-01-02,1,0,0
-    1996-01-03,1,10,0    <- heat pump operating at 1 m³/s
-    1996-01-04,1,10,0
+    1996-01-01,0,0,0
+    1996-01-02,0,0,0
+    1996-01-03,500,10,0    <- heat pump operating at 500 m³/day
+    1996-01-04,500,10,0
     ...
 
   outflow_0.csv — Extraction outflow file
@@ -187,7 +217,8 @@ OUTFLOW BLOCK — heat pump extraction point:
   Optional column (Mode 2 only): HeatFlux
 
   - time     : date in YYYY-MM-DD format
-  - flow     : extraction flow rate in m³/day. Use flow = 0 (mandatory!!)
+  - flow     : extraction flow rate in m³/day. Use 0 when the heat pump is
+               off. In Mode 1, this controls how much water is extracted.
   - HeatFlux : (Mode 2 only, optional) time-varying heat flux in Watts.
                Overrides the static heat_pump_heat_flux from the .nml file.
                Use negative values for cooling, positive for warming.
@@ -196,8 +227,8 @@ OUTFLOW BLOCK — heat pump extraction point:
     time,flow
     1996-01-01,0
     1996-01-02,0
-    1996-01-03,0
-    1996-01-04,0
+    1996-01-03,500
+    1996-01-04,500
     ...
 
   Example (Mode 2 with dynamic heat flux):
@@ -212,15 +243,18 @@ OUTFLOW BLOCK — heat pump extraction point:
 6. OUTPUT VARIABLES
 --------------------------------------------------------------------------------
 
-The heat pump adds 4 new diagnostic variables to both output files:
+The heat pump adds 5 new diagnostic variables to both output files:
 
   In lake.csv:
-    HP Daily Flux      [J/day]   — Net heat exchanged that day
-    HP Extract Temp    [°C]      — Water temperature at extraction point
-    HP Inject Temp     [°C]      — Water temperature after thermal shift
-    HP Cumulative Flux [J]       — Total heat exchanged since simulation start
+    HP Daily Flow      [m³/day] — Volume withdrawn/injected that day (the
+                                  same quantity on both ends by construction)
+    HP Daily Flux      [J/day]  — Net heat exchanged that day
+    HP Extract Temp    [°C]     — Water temperature at extraction point
+    HP Inject Temp     [°C]     — Water temperature after thermal shift
+    HP Cumulative Flux [J]      — Total heat exchanged since simulation start
 
   In output.nc (NetCDF):
+    hp_daily_flow       [m³/day]
     hp_daily_flux       [J/day]
     hp_extract_temp     [°C]
     hp_inject_temp      [°C]
@@ -296,7 +330,7 @@ Adjust all lake morphology, meteorology, and time settings to match your lake.
    num_inflows    = 2
    names_of_strms = 'heatpump',        'river'
    subm_flag      = .true.,            .false.
-   subm_elev      = 20.0,              0.0       ! injection at 20 m (above lake bottom***** this is VERY important) 
+   subm_elev      = 20.0,              0.0       ! injection at 20 m elevation
    strm_hf_angle  = 80,                80
    strmbd_slope   = 0.5,               0.5
    strmbd_drag    = 0.016,             0.016
@@ -312,7 +346,7 @@ Adjust all lake morphology, meteorology, and time settings to match your lake.
 &outflow
    num_outlet        = 2
    outlet_type       = 1,      1
-   outl_elvs         = 154.0,   177.0   ! HP extracts at 25 m above bottom (154m above sea level), river exits at surface (177m above sea level)
+   outl_elvs         = 25.0,   154.0   ! HP extracts at 25 m, river exits at surface
    bsn_len_outl      = 4347,   3837
    bsn_wid_outl      = 520,    460
    outflow_fl        = './outflow_0.csv',  './outflow_1.csv'
@@ -351,7 +385,7 @@ heat_pump_inflow_idx and heat_pump_outflow_idx. 'heatpump' is the 1st inflow
 
   - heat_pump_inflow_idx out of range:
     If num_inflows = 2, valid indices are 0 and 1. GLM will print an error
-    and skip the heat pump operation if the index is invalid.
+    and exit if the index is invalid.
 
   - Inflow CSV flow values all zero in Mode 1:
     In Mode 1, the flow comes from the OUTFLOW file (outflow_0.csv), not the
@@ -366,4 +400,6 @@ heat_pump_inflow_idx and heat_pump_outflow_idx. 'heatpump' is the 1st inflow
     In Mode 2 without a HeatFlux column in the outflow CSV and no value in
     the .nml, GLM will skip the operation silently (flux = 0).
 
-===================================================================================
+================================================================================
+END OF MANUAL
+================================================================================

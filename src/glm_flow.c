@@ -485,40 +485,45 @@ AED_REAL do_outflows(int jday, AED_REAL day_fraction)
 
         Outflows[i].Draw *= Outflows[i].Factor;
 
+        // Heat pump off: this outlet must not withdraw any water
+        if (heat_pump_switch <= 0 && i == heat_pump_outflow_idx) Outflows[i].Draw = 0.;
+
+        // Heat pump: record the pre-withdrawal state at the draw elevation,
+        // since do_single_outflow() below changes layer heights/volumes
+        int hp_lvl = -1;
+        AED_REAL hp_qout = 0., hp_Tin = 0., hp_Sin = 0.;
+        if (heat_pump_switch > 0 && i == heat_pump_outflow_idx) {
+            hp_qout = Outflows[i].Draw;   /* m3/day */
+            for (hp_lvl = botmLayer; hp_lvl <= surfLayer; ++hp_lvl) {   //Look up and finds withdrawl elevation
+                if (Lake[hp_lvl].Height >= DrawHeight) break;
+            }
+            // clamp in case DrawHeight is above the current surface
+            if (hp_lvl > surfLayer) hp_lvl = surfLayer;
+            hp_Tin = Lake[hp_lvl].Temp;
+            hp_Sin = Lake[hp_lvl].Salinity;
+        }
+
         do_single_outflow(DrawHeight, Outflows[i].Draw, &Outflows[i]);
         // Set LastDrawn for diagnostic calculations
         Outflows[i].LastDrawn = Outflows[i].Draw;
         // DrawHeight is layer where particles are; if know # of particles in
 
-        //Heat_pump captures the outflow
+        //Heat_pump captures the outflow, using the state recorded before withdrawal
         if (heat_pump_switch > 0 && i == heat_pump_outflow_idx) {
-            // substep discharge
-            AED_REAL qout = Outflows[i].Draw;   /* m3/day */
-            // find the layer that has the withdrawal elevation
-            int lvl;
-            for (lvl = botmLayer; lvl <= surfLayer; ++lvl) {   //Look up and finds withdrawl elevation
-                if (Lake[lvl].Height >= DrawHeight) break;
-            }
-            // clamp in case DrawHeight is above the current surface
-            if (lvl > surfLayer) lvl = surfLayer;
-
-            AED_REAL Tin = Lake[lvl].Temp;
-            AED_REAL Sin = Lake[lvl].Salinity;
-
             // Use WQ variables already stored in outflow structure if available (Type 6), otherwise collect fresh
             if (Outflows[i].Type == 6 && Outflows[i].WQ_Outflow != NULL && Num_WQ_Vars > 0) {
                 // Use pre-collected/stored WQ data from Type 6 outflow structure
-                heat_pump_capture_outflow(jday, DrawHeight, qout, Tin, Sin, Outflows[i].WQ_Outflow);
+                heat_pump_capture_outflow(jday, DrawHeight, hp_qout, hp_Tin, hp_Sin, Outflows[i].WQ_Outflow);
             } else if (WQ_Vars != NULL && Num_WQ_Vars > 0) {
                 // Collect WQ variables fresh (for non-Type 6 outflows or if WQ_Outflow is NULL)
                 AED_REAL wq_vars[MaxVars];
                 for (int wqidx = 0; wqidx < Num_WQ_Vars; wqidx++) {
-                    wq_vars[wqidx] = _WQ_Vars(wqidx, lvl);
+                    wq_vars[wqidx] = _WQ_Vars(wqidx, hp_lvl);
                 }
-                heat_pump_capture_outflow(jday, DrawHeight, qout, Tin, Sin, wq_vars);
+                heat_pump_capture_outflow(jday, DrawHeight, hp_qout, hp_Tin, hp_Sin, wq_vars);
             } else {
                 // No WQ variables available
-                heat_pump_capture_outflow(jday, DrawHeight, qout, Tin, Sin, NULL);
+                heat_pump_capture_outflow(jday, DrawHeight, hp_qout, hp_Tin, hp_Sin, NULL);
             }
         }
 

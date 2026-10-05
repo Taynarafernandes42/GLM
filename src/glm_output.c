@@ -413,10 +413,11 @@ void write_diags(int jday, AED_REAL LakeNum)
     write_csv_lake("CHE",             coef_wind_chwn,            NULL, FALSE);
     write_csv_lake("z/L",             SurfData.dailyzonL*(noSecs/SecsPerDay), NULL, FALSE);
     // Heat pump diagnostic outputs
+    write_csv_lake("HP Daily Flow",      heat_pump_daily_flow,        NULL, FALSE);
     write_csv_lake("HP Daily Flux",      heat_pump_daily_flux,        NULL, FALSE);
     write_csv_lake("HP Extract Temp",    heat_pump_daily_extract_temp, NULL, FALSE);
     write_csv_lake("HP Inject Temp",     heat_pump_daily_inject_temp,  NULL, FALSE);
-    write_csv_lake("HP Cumulative Flux", heat_pump_cumulative_flux,    NULL, TRUE);
+    write_csv_lake("HP Cumulative Flux", heat_pump_cumulative_flux,    NULL, FALSE);
     // Reset daily accumulators at end of output
     heat_pump_daily_flux = 0.0;
     heat_pump_daily_flow = 0.0;
@@ -425,7 +426,7 @@ void write_diags(int jday, AED_REAL LakeNum)
     write_csv_lake("Tot Inflow Salt", salt_inflow(),             NULL, FALSE);
     write_csv_lake("Tot Outflow Salt",salt_outflow(),            NULL, FALSE);
     write_csv_lake("Overflow Salt",   salt_overflow(),           NULL, FALSE);
-    write_csv_lake("Rain Salt",       salt_rain_in(),            NULL, FALSE);
+    write_csv_lake("Rain Salt",       salt_rain_in(),            NULL, TRUE);
 
     write_glm_diag_ncdf(ncid, LakeNum, max_t, min_t, max_dt);
 }
