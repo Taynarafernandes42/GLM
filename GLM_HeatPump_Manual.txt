@@ -16,11 +16,12 @@ A complete, ready-to-run example for the Grosse Dhuenn Reservoir is provided in
 examples/heat_pump_grosse_dhuenn/, with one config for each mode:
 
   cd examples/heat_pump_grosse_dhuenn
+  ../../glm --nml glm4_heatpump_mode0.nml   ! Mode 0: heat pump off (baseline)
   ../../glm --nml glm4_heatpump_mode1.nml   ! Mode 1: fixed ΔT = -2°C
   ../../glm --nml glm4_heatpump_mode2.nml   ! Mode 2: target flux = -50 kW
 
-Output goes to output_mode1/lake.csv and output_mode2/lake.csv respectively -
-look at the "HP Daily Flow", "HP Daily Flux", "HP Extract Temp",
+Output goes to output_mode0/, output_mode1/ and output_mode2/ (lake.csv in each)
+- look at the "HP Daily Flow", "HP Daily Flux", "HP Extract Temp",
 "HP Inject Temp" and "HP Cumulative Flux" columns.
 
 The example uses the full 1996-2014 input record (~19 years, hourly met data),

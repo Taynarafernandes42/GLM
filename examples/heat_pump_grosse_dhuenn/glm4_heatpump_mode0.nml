@@ -87,7 +87,7 @@
    !timezone = 7.0
 /
 &output
-   out_dir = './output_off'
+   out_dir = './output_mode0'
    out_fn = 'output'
    nsave = 1
    csv_lake_fname = 'lake'
@@ -175,4 +175,10 @@
    bsn_wid_outl      = 520, 460, 450
    outflow_fl        = './outflow_off.csv', './outflow_1.csv', './outflow_3.csv'
    outflow_factor    = 1, 1, 1
+/
+&heat_pump
+   ! --- Mode 0: heat pump fully off (baseline/control run) ---
+   heat_pump_switch       = 0        ! 0 = off
+   heat_pump_inflow_idx   = 0
+   heat_pump_outflow_idx  = 0
 /
